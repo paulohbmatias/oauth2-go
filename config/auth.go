@@ -25,6 +25,12 @@ const (
 	authServerURL = "http://localhost:9096"
 )
 
+//func (a *AuthConfig) GetAuthConfig() *AuthConfig{
+//	auth := AuthConfig{}
+//
+//	auth.s
+//}
+
 func (a *AuthConfig) SetupManager(){
 	a.Manager = manage.NewDefaultManager()
 	a.Manager.SetAuthorizeCodeTokenCfg(manage.DefaultPasswordTokenCfg)
