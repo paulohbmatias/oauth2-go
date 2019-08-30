@@ -82,7 +82,8 @@ func (a *AuthConfig) SetupConfig(){
 		ClientSecret: os.Getenv("CLIENT_SECRET"),
 		Scopes:       []string{"all"},
 		Endpoint: oauth2.Endpoint{
-			TokenURL: authServerURL + "/token",
+			TokenURL:  authServerURL + "/oauth2/token",
+			AuthStyle: 2,
 		},
 	}
 }
