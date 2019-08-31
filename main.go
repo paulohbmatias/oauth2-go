@@ -32,9 +32,10 @@ func main() {
 	db = driver.ConnectDB()
 	router := mux.NewRouter()
 
-	router.HandleFunc("/oauth2/token", authController.TokenController(authConfig))
-	router.HandleFunc("/oauth2/resourceOwner", authController.PasswordCredentials(authConfig, db)).Methods("POST")
-	router.HandleFunc("/oauth2/refreshToken", authController.PasswordCredentials(authConfig)).Methods("POST")
+	router.HandleFunc("/auth/token", authController.TokenController(authConfig))
+	router.HandleFunc("/auth/login", authController.Login(authConfig, db)).Methods("POST")
+	router.HandleFunc("/auth/refreshToken", authController.Login(authConfig, db)).Methods("POST")
+	router.HandleFunc("/auth/signUp", authController.SignUp(authConfig, db)).Methods("POST")
 
 	log.Println("Server is running at 9096 port.")
 	log.Fatal(http.ListenAndServe(":9096", router))

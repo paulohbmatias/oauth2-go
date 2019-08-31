@@ -26,7 +26,66 @@ func (a AuthController) TokenController(authConfig config.AuthConfig) http.Handl
 	}
 }
 
-func (a AuthController) PasswordCredentials(authConfig config.AuthConfig, db *sql.DB) http.HandlerFunc{
+func (a AuthController) SignUp(authConfig config.AuthConfig, db *sql.DB) http.HandlerFunc{
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		clientId, secret, _ := r.BasicAuth()
+
+		client, err := authConfig.Manager.GetClient(clientId)
+
+		if err != nil || client.GetSecret() != secret{
+			http.Error(w, errors.ErrInvalidClient.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		var userModel models.User
+		var errorModel models.Error
+		err = json.NewDecoder(r.Body).Decode(&userModel)
+		if err != nil{
+			fmt.Println(err)
+			return
+		}
+
+		if userModel.Email == ""{
+			errorModel.Message = "Email is missing"
+			utils.SendError(w, http.StatusBadRequest, errorModel)
+			return
+		}
+
+		if userModel.Password == ""{
+			errorModel.Message = "Password is missing"
+			utils.SendError(w, http.StatusBadRequest, errorModel)
+			return
+		}
+
+		hash, err := bcrypt.GenerateFromPassword([]byte(userModel.Password), bcrypt.DefaultCost)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		userModel.Password = string(hash)
+
+		userRepo := user.UserRepository{}
+		userModel, err = userRepo.SignUp(db, userModel)
+
+		if err != nil {
+			fmt.Println(err)
+			errorModel.Message = "Server error."
+			utils.SendError(w, http.StatusInternalServerError, errorModel)
+			return
+		}
+
+		userModel.Password = ""
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		utils.SendSuccess(w, userModel)
+	}
+
+}
+
+func (a AuthController) Login(authConfig config.AuthConfig, db *sql.DB) http.HandlerFunc{
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		clientId, secret, _ := r.BasicAuth()
@@ -94,6 +153,12 @@ func (a AuthController) PasswordCredentials(authConfig config.AuthConfig, db *sq
 		e := json.NewEncoder(w)
 		e.SetIndent("", "  ")
 		_ = e.Encode(token)
+	}
+}
+
+func (a AuthController) RefreshToken(authConfig config.AuthConfig) http.HandlerFunc{
+	return func(w http.ResponseWriter, r *http.Request) {
+		//TODO
 	}
 }
 
