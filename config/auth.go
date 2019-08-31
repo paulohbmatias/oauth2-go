@@ -5,12 +5,12 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"golang.org/x/oauth2"
 	"gopkg.in/oauth2.v3/errors"
+	"gopkg.in/oauth2.v3/generates"
+	"gopkg.in/oauth2.v3/manage"
+	"gopkg.in/oauth2.v3/models"
 	"gopkg.in/oauth2.v3/server"
+	"gopkg.in/oauth2.v3/store"
 	"log"
-	"oauth/oauth2/generates"
-	"oauth/oauth2/manage"
-	"oauth/oauth2/models"
-	"oauth/oauth2/store"
 	"os"
 )
 
