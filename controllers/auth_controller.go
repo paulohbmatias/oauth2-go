@@ -10,7 +10,6 @@ import (
 	"github.com/paulohbmatias/oauth2-go/driver"
 	"github.com/paulohbmatias/oauth2-go/models"
 	"github.com/paulohbmatias/oauth2-go/repositories/user"
-	"github.com/paulohbmatias/oauth2-go/utils"
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/oauth2.v3/errors"
 	"log"
@@ -51,24 +50,18 @@ func (authController *AuthController) SignUp(c echo.Context) error{
 	}
 
 	var userModel models.User
-	var errorModel models.Error
 	err = json.NewDecoder(c.Request().Body).Decode(&userModel)
+
 	if err != nil {
-		errorModel.Message = "Invalid request"
-		utils.SendError(c.Response(), http.StatusBadRequest, errorModel)
-		return err
+		return c.String(http.StatusBadRequest, "Invalid request")
 	}
 
 	if userModel.Email == "" {
-		errorModel.Message = "Email is missing"
-		utils.SendError(c.Response(), http.StatusBadRequest, errorModel)
-		return err
+		return c.String(http.StatusBadRequest, "Email is missing")
 	}
 
 	if userModel.Password == "" {
-		errorModel.Message = "Password is missing"
-		utils.SendError(c.Response(), http.StatusBadRequest, errorModel)
-		return err
+		return c.String(http.StatusBadRequest, "Password is missing")
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(userModel.Password), bcrypt.DefaultCost)
@@ -83,18 +76,11 @@ func (authController *AuthController) SignUp(c echo.Context) error{
 	userModel, err = userRepo.SignUp(authController.db, userModel)
 
 	if err != nil {
-		fmt.Println(err)
-		errorModel.Message = "Server error."
-		utils.SendError(c.Response(), http.StatusInternalServerError, errorModel)
-		return err
+		return c.String(http.StatusInternalServerError, "Server error.")
 	}
-
 	userModel.Password = ""
 
-	c.Response().Header().Set("Content-Type", "application/json")
-	c.Response().WriteHeader(http.StatusOK)
-	utils.SendSuccess(c.Response(), userModel)
-	return nil
+	return c.JSON(http.StatusCreated, userModel)
 }
 
 func (authController *AuthController) Login(c echo.Context) error{
@@ -108,22 +94,17 @@ func (authController *AuthController) Login(c echo.Context) error{
 	}
 
 	var userModel models.User
-	var errorModel models.Error
-
 
 	userModel.Email = c.FormValue("username")
 	userModel.Password = c.FormValue("password")
 
+
 	if userModel.Email == "" {
-		errorModel.Message = "Email is missing"
-		utils.SendError(c.Response(), http.StatusBadRequest, errorModel)
-		return err
+		return c.String(http.StatusBadRequest, "Email is missing")
 	}
 
 	if userModel.Password == "" {
-		errorModel.Message = "Password is missing"
-		utils.SendError(c.Response(), http.StatusBadRequest, errorModel)
-		return err
+		return c.String(http.StatusBadRequest, "Password is missing")
 	}
 
 	password := userModel.Password
@@ -133,13 +114,7 @@ func (authController *AuthController) Login(c echo.Context) error{
 
 	fmt.Println(userModel)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			errorModel.Message = "The user does not exist"
-			utils.SendError(c.Response(), http.StatusBadRequest, errorModel)
-			return nil
-		} else {
-			log.Fatal(err)
-		}
+		return c.String(http.StatusBadRequest, "The user does not exist")
 	}
 
 	hashPassword := userModel.Password
@@ -147,34 +122,25 @@ func (authController *AuthController) Login(c echo.Context) error{
 	err = bcrypt.CompareHashAndPassword([]byte(hashPassword), []byte(password))
 
 	if err != nil {
-		errorModel.Message = "Invalid password"
-		utils.SendError(c.Response(), http.StatusBadRequest, errorModel)
-		return nil
+		return c.String(http.StatusBadRequest, "Invalid password")
 	}
 
-	token, err := authController.authConfig.Config.PasswordCredentialsToken(context.Background(), "test", "test")
+	token, err := authController.authConfig.Config.PasswordCredentialsToken(context.Background(), userModel.Email, userModel.Password)
 	if err != nil {
 		http.Error(c.Response(), err.Error(), http.StatusInternalServerError)
-		return nil
+		return c.String(http.StatusInternalServerError, "")
 	}
 
-	token.SetAuthHeader(c.Request())
-
-	e := json.NewEncoder(c.Response())
-	e.SetIndent("", "  ")
-	_ = e.Encode(token)
-	return nil
+	return c.JSON(http.StatusOK, token)
 }
 
 func (authController *AuthController) RefreshToken(c echo.Context) error{
-	var errorModel models.Error
 	authHeader := c.Request().Header.Get("Authorization")
 	//bearerToken := strings.Split(authHeader, " ")
 	token, err := authController.authConfig.Config.Exchange(context.TODO(), authHeader)
 
 	if err != nil {
-		errorModel.Message = "Invalid token"
-		utils.SendError(c.Response(), http.StatusBadRequest, errorModel)
+		return c.String(http.StatusBadRequest, "Invalid token")
 	}
 	return c.JSON(http.StatusOK, token)
 }

@@ -51,10 +51,8 @@ func (a *AuthConfig) SetupServer() {
 	a.Server = server.NewServer(server.NewConfig(), a.Manager)
 
 	a.Server.SetPasswordAuthorizationHandler(func(username, password string) (userID string, err error) {
-		if username == "test" && password == "test" {
-			userID = "test"
-		}
-		return
+		userID = "1"
+		return userID, nil
 	})
 
 	a.Server.SetInternalErrorHandler(func(err error) (re *errors.Response) {
