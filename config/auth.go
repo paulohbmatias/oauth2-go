@@ -21,15 +21,18 @@ type AuthConfig struct {
 	ClientStore *store.ClientStore
 }
 
+func NewAuthConfig() *AuthConfig {
+	var authConfig AuthConfig
+	authConfig.SetupConfig()
+	authConfig.SetupClients()
+	authConfig.SetupManager()
+	authConfig.SetupServer()
+	return &authConfig
+}
+
 const (
 	authServerURL = "http://localhost:9096"
 )
-
-//func (a *AuthConfig) GetAuthConfig() *AuthConfig{
-//	auth := AuthConfig{}
-//
-//	auth.s
-//}
 
 func (a *AuthConfig) SetupManager(){
 	a.Manager = manage.NewDefaultManager()

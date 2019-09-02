@@ -1,14 +1,11 @@
 package main
 
 import (
-	"database/sql"
-	"github.com/gorilla/mux"
-	"github.com/paulohbmatias/oauth2-go/config"
+	"github.com/labstack/echo"
 	"github.com/paulohbmatias/oauth2-go/controllers"
-	"github.com/paulohbmatias/oauth2-go/driver"
 	"github.com/subosito/gotenv"
 	"log"
-	"net/http"
+	"os"
 )
 
 func init() {
@@ -16,27 +13,25 @@ func init() {
 	if err != nil{
 		log.Fatal(err)
 	}
-	authConfig.SetupConfig()
-	authConfig.SetupClients()
-	authConfig.SetupManager()
-	authConfig.SetupServer()
+	authController = controllers.NewAuthController()
+	port = os.Getenv("PORT")
+	e = echo.New()
 }
 
 var (
-	authConfig config.AuthConfig
-	authController controllers.AuthController
-	db *sql.DB
+	e *echo.Echo
+	authController *controllers.AuthController
+	port string
 )
 
 func main() {
-	db = driver.ConnectDB()
-	router := mux.NewRouter()
 
-	router.HandleFunc("/auth/token", authController.TokenController(authConfig))
-	router.HandleFunc("/auth/login", authController.Login(authConfig, db)).Methods("POST")
-	router.HandleFunc("/auth/refreshToken", authController.RefreshToken(authConfig)).Methods("POST")
-	router.HandleFunc("/auth/signUp", authController.SignUp(authConfig, db)).Methods("POST")
+	g := e.Group("/auth")
 
-	log.Println("Server is running at 9096 port.")
-	log.Fatal(http.ListenAndServe(":9096", router))
+	g.POST("/token", authController.TokenController)
+	g.POST("/login", authController.Login)
+	g.POST("/refreshToken", authController.RefreshToken)
+	g.POST("/signUp", authController.SignUp)
+
+	e.Logger.Fatal(e.Start(":"+port))
 }
