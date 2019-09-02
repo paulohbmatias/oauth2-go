@@ -17,8 +17,9 @@ func logFatal(err error) {
 func (u UserRepository) SignUp(db *sql.DB, user models.User) (models.User, error) {
 	stmt := "insert into users (email, password) values($1, $2) RETURNING id;"
 	err := db.QueryRow(stmt, user.Email, user.Password).Scan(&user.ID)
-
-	logFatal(err)
+	if err != nil{
+		logFatal(err)
+	}
 
 	user.Password = ""
 	return user, nil

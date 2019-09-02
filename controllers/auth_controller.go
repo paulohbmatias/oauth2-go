@@ -42,7 +42,8 @@ func (a AuthController) SignUp(authConfig config.AuthConfig, db *sql.DB) http.Ha
 		var errorModel models.Error
 		err = json.NewDecoder(r.Body).Decode(&userModel)
 		if err != nil{
-			fmt.Println(err)
+			errorModel.Message = "Invalid request"
+			utils.SendError(w, http.StatusBadRequest, errorModel)
 			return
 		}
 
@@ -99,11 +100,14 @@ func (a AuthController) Login(authConfig config.AuthConfig, db *sql.DB) http.Han
 
 		var userModel models.User
 		var errorModel models.Error
-		err = json.NewDecoder(r.Body).Decode(&userModel)
+
+		err = r.ParseForm()
 		if err != nil{
-			fmt.Println(err)
-			return
+
 		}
+
+		userModel.Email = r.FormValue("username")
+		userModel.Password = r.FormValue("password")
 
 		if userModel.Email == ""{
 			errorModel.Message = "Email is missing"
@@ -122,9 +126,10 @@ func (a AuthController) Login(authConfig config.AuthConfig, db *sql.DB) http.Han
 		userRepo := user.UserRepository{}
 		userModel, err = userRepo.Login(db, userModel)
 
+		fmt.Println(userModel)
 		if err != nil{
 			if err == sql.ErrNoRows{
-				errorModel.Message = "The userModel does not exist"
+				errorModel.Message = "The user does not exist"
 				utils.SendError(w, http.StatusBadRequest, errorModel)
 				return
 			}else{
@@ -142,7 +147,7 @@ func (a AuthController) Login(authConfig config.AuthConfig, db *sql.DB) http.Han
 			return
 		}
 
-		token, err := authConfig.Config.PasswordCredentialsToken(context.TODO(), userModel.Email, userModel.Password)
+		token, err := authConfig.Config.PasswordCredentialsToken(context.Background(), "test", "test")
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -158,7 +163,16 @@ func (a AuthController) Login(authConfig config.AuthConfig, db *sql.DB) http.Han
 
 func (a AuthController) RefreshToken(authConfig config.AuthConfig) http.HandlerFunc{
 	return func(w http.ResponseWriter, r *http.Request) {
-		//TODO
+		var errorModel models.Error
+		authHeader := r.Header.Get("Authorization")
+		//bearerToken := strings.Split(authHeader, " ")
+		token, err := authConfig.Config.Exchange(context.TODO(), authHeader)
+
+		if err != nil{
+			errorModel.Message = "Invalid token"
+			utils.SendError(w, http.StatusBadRequest, errorModel)
+		}
+		utils.SendSuccess(w, token)
 	}
 }
 

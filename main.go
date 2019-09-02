@@ -34,7 +34,7 @@ func main() {
 
 	router.HandleFunc("/auth/token", authController.TokenController(authConfig))
 	router.HandleFunc("/auth/login", authController.Login(authConfig, db)).Methods("POST")
-	router.HandleFunc("/auth/refreshToken", authController.Login(authConfig, db)).Methods("POST")
+	router.HandleFunc("/auth/refreshToken", authController.RefreshToken(authConfig)).Methods("POST")
 	router.HandleFunc("/auth/signUp", authController.SignUp(authConfig, db)).Methods("POST")
 
 	log.Println("Server is running at 9096 port.")
