@@ -1,28 +1,35 @@
 package config
 
 import (
+	"database/sql"
 	"fmt"
 	"github.com/dgrijalva/jwt-go"
+	"github.com/paulohbmatias/oauth2-go/models"
+	userRepository "github.com/paulohbmatias/oauth2-go/repositories/user"
+	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
 	"gopkg.in/oauth2.v3/errors"
 	"gopkg.in/oauth2.v3/generates"
 	"gopkg.in/oauth2.v3/manage"
-	"gopkg.in/oauth2.v3/models"
 	"gopkg.in/oauth2.v3/server"
 	"gopkg.in/oauth2.v3/store"
 	"log"
+	authModels "oauth/oauth2/models"
 	"os"
 )
 
 type AuthConfig struct {
 	Server  *server.Server
-	Config  oauth2.Config
+	Config  *oauth2.Config
 	Manager *manage.Manager
 	ClientStore *store.ClientStore
+	db *sql.DB
 }
 
-func NewAuthConfig() *AuthConfig {
-	var authConfig AuthConfig
+func NewAuthConfig(db *sql.DB) *AuthConfig {
+	authConfig := AuthConfig{
+		db: db,
+	}
 	authConfig.SetupConfig()
 	authConfig.SetupClients()
 	authConfig.SetupManager()
@@ -51,8 +58,35 @@ func (a *AuthConfig) SetupServer() {
 	a.Server = server.NewServer(server.NewConfig(), a.Manager)
 
 	a.Server.SetPasswordAuthorizationHandler(func(username, password string) (userID string, err error) {
-		userID = "1"
-		return userID, nil
+
+		if username == "" || password == ""{
+			err = errors.ErrAccessDenied
+			return
+		}
+
+		var user models.User
+
+		user.Password = password
+		user.Email = username
+
+		userRepo := userRepository.UserRepository{}
+		userModel, err := userRepo.Login(a.db, user)
+
+		if err != nil {
+			return
+		}
+
+		hashPassword := userModel.Password
+
+		err = bcrypt.CompareHashAndPassword([]byte(hashPassword), []byte(password))
+
+		if err != nil{
+			return
+		}
+
+		userID = userModel.ID
+
+		return
 	})
 
 	a.Server.SetInternalErrorHandler(func(err error) (re *errors.Response) {
@@ -67,7 +101,7 @@ func (a *AuthConfig) SetupServer() {
 
 func (a *AuthConfig) SetupClients(){
 	a.ClientStore = store.NewClientStore()
-	err := a.ClientStore.Set(os.Getenv("CLIENT_ID"), &models.Client{
+	err := a.ClientStore.Set(os.Getenv("CLIENT_ID"), &authModels.Client{
 		ID:     os.Getenv("CLIENT_ID"),
 		Secret: os.Getenv("CLIENT_SECRET"),
 	})
@@ -78,7 +112,7 @@ func (a *AuthConfig) SetupClients(){
 }
 
 func (a *AuthConfig) SetupConfig(){
-	a.Config = oauth2.Config{
+	a.Config = &oauth2.Config{
 		ClientID:     os.Getenv("CLIENT_ID"),
 		ClientSecret: os.Getenv("CLIENT_SECRET"),
 		Scopes:       []string{"all"},
