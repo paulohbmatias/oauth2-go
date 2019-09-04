@@ -11,9 +11,12 @@ import (
 	"github.com/paulohbmatias/oauth2-go/models"
 	"github.com/paulohbmatias/oauth2-go/repositories/user"
 	"golang.org/x/crypto/bcrypt"
+	oauth22 "golang.org/x/oauth2"
+	"gopkg.in/oauth2.v3"
 	"gopkg.in/oauth2.v3/errors"
 	"log"
 	"net/http"
+	"time"
 )
 
 type AuthController struct {
@@ -135,12 +138,48 @@ func (authController *AuthController) Login(c echo.Context) error{
 }
 
 func (authController *AuthController) RefreshToken(c echo.Context) error{
-	authHeader := c.Request().Header.Get("Authorization")
-	//bearerToken := strings.Split(authHeader, " ")
-	token, err := authController.authConfig.Config.Exchange(context.TODO(), authHeader)
+	clientId, secret, _ := c.Request().BasicAuth()
+
+	client, err := authController.authConfig.Manager.GetClient(clientId)
+
+	if err != nil || client.GetSecret() != secret {
+		http.Error(c.Response(), errors.ErrInvalidClient.Error(), http.StatusInternalServerError)
+		return err
+	}
+	refreshToken := c.FormValue("refresh_token")
+
+	tokenInfo, err := authController.authConfig.Manager.LoadRefreshToken(refreshToken)
+
+	if err != nil{
+		fmt.Println(err.Error())
+		return c.String(http.StatusBadRequest, "Invalid token")
+	}
+
+	tokenGenerate := &oauth2.TokenGenerateRequest{
+		ClientID:       clientId,
+		ClientSecret:   secret,
+		UserID:         tokenInfo.GetUserID(),
+		RedirectURI:    tokenInfo.GetRedirectURI(),
+		Scope:          tokenInfo.GetScope(),
+		Code:           tokenInfo.GetCode(),
+		Refresh:        tokenInfo.GetRefresh(),
+		AccessTokenExp: tokenInfo.GetAccessExpiresIn(),
+		Request:        c.Request(),
+	}
+
+
+	newToken, err := authController.authConfig.Manager.RefreshAccessToken(tokenGenerate)
 
 	if err != nil {
 		return c.String(http.StatusBadRequest, "Invalid token")
 	}
+
+	token := oauth22.Token{
+		AccessToken:  newToken.GetAccess(),
+		TokenType:    "Bearer",
+		RefreshToken: newToken.GetRefresh(),
+		Expiry:       time.Now().Add(newToken.GetAccessExpiresIn()),
+	}
+
 	return c.JSON(http.StatusOK, token)
 }
